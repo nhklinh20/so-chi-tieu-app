@@ -268,6 +268,17 @@ runRecurring();
 const fmt=n=>Math.round(n).toLocaleString('vi-VN')+' ₫';
 const fmtS=n=>{const a=Math.abs(n);if(a>=1e9)return (n/1e9).toFixed(1).replace('.0','')+' tỷ';if(a>=1e6)return (n/1e6).toFixed(a>=1e7?1:2).replace(/\.?0+$/,'')+' tr';if(a>=1e3)return Math.round(n/1e3)+'k';return String(Math.round(n))};
 const cat=id=>S.cats.find(c=>c.id===id)||{name:'?',icon:'❔',color:'#888',type:'ex'};
+const ESS_DEFAULT=['cho','nha','sk','hoc'];
+const catNeed=c=>c.essential!==undefined?!!c.essential:ESS_DEFAULT.includes(c.id);
+const isNeed=t=>t.need!==undefined&&t.need!==null?!!t.need:catNeed(cat(t.cat));
+function needCard(arr,title){const ex=arr.filter(t=>t.type==='ex'),tot=ex.reduce((a,t)=>a+t.amt,0);if(!tot)return '';
+  const need=ex.filter(isNeed).reduce((a,t)=>a+t.amt,0),opt=tot-need,m={};
+  ex.filter(t=>!isNeed(t)).forEach(t=>m[t.cat]=(m[t.cat]||0)+t.amt);
+  const top=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  return `<div class="card"><div class="sechead"><h2>${title}</h2></div>
+  <div class="row2"><div><div class="label">Bắt buộc</div><b class="num" style="font-size:18px">${fmt(need)}</b></div><div><div class="label">Tùy chọn</div><b class="num" style="font-size:18px;color:var(--warn)">${fmt(opt)}</b></div></div>
+  <div class="bar" style="margin:10px 0 8px;display:flex"><i style="width:${need/tot*100}%;border-radius:0"></i><i style="width:${opt/tot*100}%;background:var(--warn);border-radius:0"></i></div>
+  <div class="hint" style="margin:0"><b>${Math.round(opt/tot*100)}%</b> chi tiêu là khoản tùy chọn, có thể cắt giảm.${top.length?' Nhiều nhất: '+top.map(([id,v])=>`${cat(id).icon} ${esc(cat(id).name)} ${fmtS(v)}`).join(', ')+'.':''}</div></div>`}
 let cur=new Date();cur=new Date(cur.getFullYear(),cur.getMonth(),1);
 let tab='home',selDay=ymd(new Date()),repMode='month';
 const monthKey=d=>d.getFullYear()+'-'+pad(d.getMonth()+1);
@@ -347,7 +358,7 @@ function txList(arr,group=true){
     if(group&&t.date!==last){last=t.date;const d=parseYMD(t.date);const dsum=arr.filter(x=>x.date===t.date&&x.type==='ex').reduce((a,x)=>a+x.amt,0);
       h+=`<div class="dayhead"><span>${['CN','T2','T3','T4','T5','T6','T7'][d.getDay()]}, ${d.getDate()}/${d.getMonth()+1}</span><span class="num">${dsum?'−'+fmtS(dsum):''}</span></div>`}
     const c=cat(t.cat);
-    h+=`<button class="tx" data-edit="${t.id}"><span class="ico" style="background:${c.color}22">${c.icon}</span><span class="mid"><b>${esc(t.note||c.name)}</b><small>${esc(c.name)}${t.rec?' · định kỳ':''}</small></span><span class="amt num ${t.type==='in'?'in':''}">${t.type==='in'?'+':'−'}${fmt(t.amt)}</span></button>`;
+    h+=`<button class="tx" data-edit="${t.id}"><span class="ico" style="background:${c.color}22">${c.icon}</span><span class="mid"><b>${esc(t.note||c.name)}</b><small>${esc(c.name)}${t.rec?' · định kỳ':''}${t.type==='ex'?(isNeed(t)?' · Bắt buộc':' · <span style="color:var(--warn)">Tùy chọn</span>'):''}</small></span><span class="amt num ${t.type==='in'?'in':''}">${t.type==='in'?'+':'−'}${fmt(t.amt)}</span></button>`;
   }
   return h;
 }
@@ -363,6 +374,7 @@ function vHome(){
     ${S.totalBudget?`<div class="bar"><i style="width:${pct}%"></i></div><div class="hint num" style="color:inherit;opacity:.75">${Math.round(spent/S.totalBudget*100)}% ngân sách ${fmt(S.totalBudget)}</div>`:''}
     <div class="row3" style="margin-top:12px"><div><span class="label">Thu</span><b class="num">${fmtS(inc)}</b></div><div><span class="label">Còn lại</span><b class="num">${fmtS(inc-spent)}</b></div><div><span class="label">Ngân sách còn</span><b class="num">${S.totalBudget?fmtS(S.totalBudget-spent):'—'}</b></div></div>
   </div>
+  ${needCard(tx,'Bắt buộc và tùy chọn')}
   <div class="card"><form class="quick" id="qf"><input id="qi" placeholder="Gõ nhanh: phở 45k, lương 18tr, grab 60k hôm qua" autocomplete="off"><button type="submit">Lưu</button></form>
     <div class="preview" id="qp"></div><div class="hint">Hỗ trợ k / tr / nghìn, “hôm qua”, “hôm kia”, ngày “12/10”. App tự đoán danh mục và học theo cách bạn sửa.</div></div>
   ${ins.length?`<div class="card"><div class="sechead"><h2>Gợi ý thông minh</h2></div><div class="insights">${ins.map(i=>`<div class="ins ${i.c}"><span class="dot"></span><span>${i.t}</span></div>`).join('')}</div></div>`:''}
@@ -425,6 +437,7 @@ function vReport(){
     <div class="seg"><button data-rep="month" class="${!year?'on':''}">Tháng</button><button data-rep="year" class="${year?'on':''}">Năm</button></div>
     <div class="card"><div class="sechead"><h2>Chi theo danh mục</h2></div>
       <div class="donutwrap">${donut(parts,total)}<div class="legend">${parts.length?parts.map(p=>`<div><i style="background:${p.color}"></i><span>${cat(p.id).icon} ${esc(cat(p.id).name)}</span><b class="num">${fmtS(p.v)}</b><small class="num" style="color:var(--muted);width:34px;text-align:right">${Math.round(p.v/total*100)}%</small></div>`).join(''):'<div class="empty">Chưa có chi tiêu.</div>'}</div></div></div>
+    ${needCard(tx,'Bắt buộc và tùy chọn')}
     <div class="card"><div class="sechead"><h2>${year?'12 tháng':'6 tháng gần nhất'}</h2><span class="hint" style="margin:0">Trung bình ${fmtS(avg)}/tháng</span></div>${bars(series)}
       <div class="hint" style="display:flex;gap:14px"><span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--income)"></i> Thu</span><span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--muted)"></i> Chi</span></div></div>
     <div class="card"><div class="sechead"><h2>Khoản chi lớn nhất</h2></div>${txList(ex.sort((a,b)=>b.amt-a.amt).slice(0,5),false)}</div>
@@ -434,7 +447,7 @@ function vReport(){
 
 function vSettings(){
   const ex=S.cats.filter(c=>c.type==='ex'),inc=S.cats.filter(c=>c.type==='in');
-  const row=c=>`<button class="setrow" data-cat="${c.id}"><span class="ico" style="background:${c.color}22">${c.icon}</span><span class="mid"><b>${esc(c.name)}</b><small>${c.budget?'Ngân sách '+fmtS(c.budget)+'/tháng':'Không đặt ngân sách'}</small></span><span style="color:var(--muted)">›</span></button>`;
+  const row=c=>`<button class="setrow" data-cat="${c.id}"><span class="ico" style="background:${c.color}22">${c.icon}</span><span class="mid"><b>${esc(c.name)}</b><small>${c.type==='ex'?(catNeed(c)?'Bắt buộc · ':'Tùy chọn · '):''}${c.budget?'Ngân sách '+fmtS(c.budget)+'/tháng':'Không đặt ngân sách'}</small></span><span style="color:var(--muted)">›</span></button>`;
   $('#view').innerHTML=`<section>
     <div class="card" id="budgets"><div class="sechead"><h2>Ngân sách tổng mỗi tháng</h2></div>
       <div class="field"><input id="tb" inputmode="numeric" value="${S.totalBudget?S.totalBudget.toLocaleString('vi-VN'):''}" placeholder="Ví dụ 9.000.000"></div>
@@ -469,7 +482,7 @@ function sheet(html,bind){
 }
 function txSheet(t,presetDate){
   const isNew=!t;t=t?{...t}:{id:uid(),type:'ex',cat:null,amt:0,note:'',date:presetDate||ymd(new Date())};
-  let repeat=false;
+  let repeat=false,needTouched=t.need!==undefined;
   const draw=()=>{
     const cats=S.cats.filter(c=>c.type===t.type);if(!cats.find(c=>c.id===t.cat))t.cat=cats[0].id;
     sheet(`<h3>${isNew?'Thêm giao dịch':'Sửa giao dịch'}</h3>
@@ -477,6 +490,7 @@ function txSheet(t,presetDate){
       <div><input class="amtin num" id="fa" inputmode="numeric" placeholder="0 ₫" value="${t.amt?t.amt.toLocaleString('vi-VN'):''}">
       <div class="chips" style="margin-top:8px">${['000','20000','50000','100000','500000'].map(v=>`<button data-q="${v}">${v==='000'?'×1000':'+'+fmtS(+v)}</button>`).join('')}</div></div>
       <div class="catgrid">${cats.map(c=>`<button data-c="${c.id}" class="${t.cat===c.id?'on':''}"><span class="ico" style="background:${c.color}22">${c.icon}</span><span>${esc(c.name)}</span></button>`).join('')}</div>
+      ${t.type==='ex'?`<div class="field"><label>Loại khoản chi</label><div class="typetog"><button data-need="1" class="${isNeed(t)?'on':''}">Bắt buộc phải chi</button><button data-need="0" class="${!isNeed(t)?'on':''}">Tùy chọn, cắt được</button></div></div>`:''}
       <div class="row2"><div class="field"><label for="fn">Ghi chú</label><input id="fn" value="${esc(t.note)}" placeholder="Ví dụ: bún bò"></div><div class="field"><label for="fd">Ngày</label><input id="fd" type="date" value="${t.date}"></div></div>
       ${isNew?`<label class="check"><input type="checkbox" id="fr" ${repeat?'checked':''}> Lặp lại hằng tháng vào ngày này</label>`:''}
       <div class="btns">${isNew?'<button class="btn ghost" id="fx">Hủy</button>':'<button class="btn danger" id="fdel">Xóa</button>'}<button class="btn pri" id="fs">Lưu</button></div>`,()=>{
@@ -485,7 +499,8 @@ function txSheet(t,presetDate){
       fa.oninput=()=>{const v=readAmt();fa.value=v?v.toLocaleString('vi-VN'):''};
       const sync=()=>{t.amt=readAmt();t.note=$('#fn').value;t.date=$('#fd').value||t.date;const r=$('#fr');if(r)repeat=r.checked};
       document.querySelectorAll('[data-ty]').forEach(b=>b.onclick=()=>{sync();t.type=b.dataset.ty;t.cat=null;draw()});
-      document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{sync();t.cat=b.dataset.c;draw()});
+      document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{sync();t.cat=b.dataset.c;if(!needTouched)delete t.need;draw()});
+      document.querySelectorAll('[data-need]').forEach(b=>b.onclick=()=>{sync();t.need=b.dataset.need==='1';needTouched=true;if(t.need===catNeed(cat(t.cat)))delete t.need;draw()});
       document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{let v=readAmt();v=b.dataset.q==='000'?v*1000:v+ +b.dataset.q;fa.value=v.toLocaleString('vi-VN')});
       $('#fn').oninput=e=>{if(!isNew)return;const g=guessCat(e.target.value);if(g.type===t.type&&e.target.value.length>2&&g.id!=='khac'){document.querySelectorAll('[data-c]').forEach(b=>b.classList.toggle('on',b.dataset.c===g.id));t.cat=g.id}};
       const fx=$('#fx');if(fx)fx.onclick=close;
@@ -506,9 +521,10 @@ function catSheet(c,type){
     <div class="field"><label>Biểu tượng</label><div class="emojis">${EMOJI.map(e=>`<button data-e="${e}" class="${c.icon===e?'on':''}">${e}</button>`).join('')}</div></div>
     <div class="field"><label>Màu</label><div class="colors">${COLORS.map(x=>`<button data-col="${x}" class="${c.color===x?'on':''}" style="background:${x}" aria-label="Màu ${x}"></button>`).join('')}</div></div>
     ${c.type==='ex'?`<div class="field"><label for="cb">Ngân sách mỗi tháng (để trống nếu không cần)</label><input id="cb" inputmode="numeric" value="${c.budget?c.budget.toLocaleString('vi-VN'):''}"></div>`:''}
+    ${c.type==='ex'?`<label class="check"><input type="checkbox" id="ce" ${catNeed(c)?'checked':''}> Mặc định là chi tiêu bắt buộc (vd: tiền nhà, học phí, thuốc)</label>`:''}
     <div class="field"><label for="ck">Từ khóa để tự nhận diện (cách nhau bằng dấu phẩy)</label><input id="ck" value="${esc((c.kw||[]).join(', '))}" placeholder="pate, cát vệ sinh, thú y"></div>
     <div class="btns">${isNew?'<button class="btn ghost" id="cx">Hủy</button>':'<button class="btn danger" id="cdel">Xóa</button>'}<button class="btn pri" id="cs">Lưu</button></div>`,()=>{
-    const sync=()=>{c.name=$('#cn').value.trim();const b=$('#cb');if(b)c.budget=parseInt(b.value.replace(/\D/g,''))||0;c.kw=$('#ck').value.split(',').map(s=>s.trim()).filter(Boolean)};
+    const sync=()=>{c.name=$('#cn').value.trim();const b=$('#cb');if(b)c.budget=parseInt(b.value.replace(/\D/g,''))||0;const ce=$('#ce');if(ce)c.essential=ce.checked;c.kw=$('#ck').value.split(',').map(s=>s.trim()).filter(Boolean)};
     document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{sync();c.icon=b.dataset.e;draw()});
     document.querySelectorAll('[data-col]').forEach(b=>b.onclick=()=>{sync();c.color=b.dataset.col;draw()});
     const cb=$('#cb');if(cb)cb.oninput=()=>{const v=parseInt(cb.value.replace(/\D/g,''))||0;cb.value=v?v.toLocaleString('vi-VN'):''};
@@ -646,7 +662,7 @@ document.addEventListener('click',e=>{
   if(a==='backup')copyText(JSON.stringify(S),'Đã sao chép bản sao lưu. Hãy dán vào Ghi chú hoặc email cho chính bạn.');
   if(a==='restore')restoreSheet();
   if(a==='csv'){const k=repMode==='year'?String(cur.getFullYear()):monthKey(cur);
-    const rows=[['Ngày','Loại','Danh mục','Ghi chú','Số tiền']].concat(S.tx.filter(t=>t.date.startsWith(k)).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>[t.date,t.type==='in'?'Thu':'Chi',cat(t.cat).name,t.note,t.type==='in'?t.amt:-t.amt]));
+    const rows=[['Ngày','Loại','Danh mục','Bắt buộc','Ghi chú','Số tiền']].concat(S.tx.filter(t=>t.date.startsWith(k)).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>[t.date,t.type==='in'?'Thu':'Chi',cat(t.cat).name,t.type==='ex'?(isNeed(t)?'Bắt buộc':'Tùy chọn'):'',t.note,t.type==='in'?t.amt:-t.amt]));
     copyText(rows.map(r=>r.join('\t')).join('\n'),'Đã sao chép. Dán thẳng vào Excel hoặc Google Sheets.')}
 });
 $('#addBtn').onclick=()=>txSheet(null,tab==='cal'?selDay:null);
