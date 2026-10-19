@@ -107,7 +107,10 @@ section{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
 .donutwrap{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
 @media (max-width:400px){.donutwrap{grid-template-columns:1fr;justify-items:center}}
 .legend{display:grid;gap:7px;width:100%;min-width:0}
-.legend div{display:flex;align-items:center;gap:8px;font-size:13px}
+.legend div,.legend button{display:flex;align-items:center;gap:8px;font-size:13px;width:100%;text-align:left;padding:5px 6px;margin:-1px -6px;border-radius:8px}
+.legend button:hover{background:var(--sunk)}
+[data-catd]{cursor:pointer}
+svg path[data-catd]:hover,svg circle[data-catd]:hover{opacity:.8}
 .legend i{width:10px;height:10px;border-radius:3px;flex:none}
 .legend span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 svg text{fill:var(--muted);font-family:var(--font)}
@@ -188,6 +191,7 @@ textarea{width:100%;min-height:120px;border-radius:11px;border:1px solid var(--l
 <script src="lib/firebase-auth-compat.js"></script>
 <script src="lib/firebase-firestore-compat.js"></script>
 <script src="i18n.js"></script>
+<script src="sample.js"></script>
 <script>
 (function(){
 const KEY='sochitieu.v1';
@@ -221,6 +225,9 @@ const DEF_CATS=[
  {id:'gt',name:'Giải trí',icon:'🎬',color:'#9A5BC9',type:'ex',budget:500000,kw:['phim','cgv','netflix','spotify','game','karaoke','du lịch','bar','bia']},
  {id:'sk',name:'Sức khỏe',icon:'💊',color:'#2BA7A0',type:'ex',budget:0,kw:['thuốc','thuoc','khám','bệnh viện','gym','yoga','nha sĩ']},
  {id:'hoc',name:'Học tập',icon:'📚',color:'#F09A36',type:'ex',budget:0,kw:['sách','sach','học phí','hoc phi','khóa học','in ấn','photo']},
+ {id:'con',name:'Con cái',icon:'👶',color:'#F09A36',type:'ex',budget:0,essential:true,kw:['học phí','hoc phi','sữa','bỉm','bim','con','bé','be']},
+ {id:'bh',name:'Bảo hiểm',icon:'💳',color:'#56636B',type:'ex',budget:0,essential:true,kw:['bảo hiểm','bao hiem','insurance']},
+ {id:'hieu',name:'Hiếu hỷ',icon:'🎁',color:'#D2569A',type:'ex',budget:0,kw:['đám cưới','dam cuoi','đám giỗ','đám ma','lì xì','li xi','biếu','quà','mừng']},
  {id:'khac',name:'Khác',icon:'🧾',color:'#56636B',type:'ex',budget:0,kw:[]},
  {id:'luong',name:'Lương',icon:'💼',color:'#2F6FDB',type:'in',budget:0,kw:['lương','luong','salary']},
  {id:'thuong',name:'Thưởng',icon:'🎉',color:'#E3C23A',type:'in',budget:0,kw:['thưởng','thuong','bonus']},
@@ -239,10 +246,16 @@ function sample(){
   }
   return t;
 }
-function fresh(withSample){return {v:1,cats:JSON.parse(JSON.stringify(DEF_CATS)),tx:withSample?sample():[],recurring:withSample?[{id:uid(),cat:'nha',amt:4500000,note:'Tiền nhà',type:'ex',day:2,from:null}]:[],totalBudget:9000000,theme:'system',learn:{},isSample:!!withSample}}
+function fresh(withSample){
+  const st={v:1,cats:JSON.parse(JSON.stringify(DEF_CATS)),tx:[],recurring:[],totalBudget:0,theme:'system',learn:{},isSample:!!withSample};
+  if(withSample){
+    if(window.makeSample){const m=window.makeSample(new Date());st.tx=m.tx.map(t=>({id:uid(),...t}));st.recurring=m.recurring.map(r=>({id:uid(),from:null,...r}));st.totalBudget=m.totalBudget;st.cats.forEach(c=>{if(m.budgets[c.id])c.budget=m.budgets[c.id]})}
+    else{st.tx=sample();st.totalBudget=9000000}
+  }
+  return st}
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-if(!S||!S.cats) S=fresh(true);
+if(!S||!S.cats||(S.isSample&&window.makeSample&&!S.cats.find(c=>c.id==='con'))) S=fresh(true);
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function save(){persist();cloudPush()}
 const recId=key=>'r_'+key.replace(/[^a-zA-Z0-9_-]/g,'_');
@@ -288,7 +301,7 @@ runRecurring();
 const fmt=n=>Math.round(n).toLocaleString('vi-VN')+' ₫';
 const fmtS=n=>{const a=Math.abs(n);if(a>=1e9)return (n/1e9).toFixed(1).replace('.0','')+(LANG==='vi'?' tỷ':'B');if(a>=1e6)return (n/1e6).toFixed(a>=1e7?1:2).replace(/\.?0+$/,'')+(LANG==='vi'?' tr':'M');if(a>=1e3)return Math.round(n/1e3)+'k';return String(Math.round(n))};
 const cat=id=>S.cats.find(c=>c.id===id)||{name:'?',icon:'❔',color:'#888',type:'ex'};
-const ESS_DEFAULT=['cho','nha','sk','hoc'];
+const ESS_DEFAULT=['cho','nha','sk','hoc','con','bh'];
 const catNeed=c=>c.essential!==undefined?!!c.essential:ESS_DEFAULT.includes(c.id);
 const isNeed=t=>t.need!==undefined&&t.need!==null?!!t.need:catNeed(cat(t.cat));
 function needCard(arr,title){const ex=arr.filter(t=>t.type==='ex'),tot=ex.reduce((a,t)=>a+t.amt,0);if(!tot)return '';
@@ -373,7 +386,7 @@ function insights(k){
 
 function txList(arr,group=true){
   if(!arr.length)return `<div class="empty">${T('Chưa có giao dịch nào. Nhấn {0} hoặc gõ nhanh ở trên, ví dụ “cà phê 35k”.','<b>+</b>')}</div>`;
-  arr=[...arr].sort((a,b)=>b.date.localeCompare(a.date)||0);
+  if(group)arr=[...arr].sort((a,b)=>b.date.localeCompare(a.date)||0);
   let h='',last='';
   for(const t of arr){
     if(group&&t.date!==last){last=t.date;const d=parseYMD(t.date);const dsum=arr.filter(x=>x.date===t.date&&x.type==='ex').reduce((a,x)=>a+x.amt,0);
@@ -399,7 +412,7 @@ function vHome(){
   <div class="card"><form class="quick" id="qf"><input id="qi" placeholder="${T('Gõ nhanh: phở 45k, lương 18tr, grab 60k hôm qua')}" autocomplete="off"><button type="submit">${T('Lưu')}</button></form>
     <div class="preview" id="qp"></div><div class="hint">${T('Hỗ trợ k / tr / nghìn, “hôm qua”, “hôm kia”, ngày “12/10”. App tự đoán danh mục và học theo cách bạn sửa.')}</div></div>
   ${ins.length?`<div class="card"><div class="sechead"><h2>${T('Gợi ý thông minh')}</h2></div><div class="insights">${ins.map(i=>`<div class="ins ${i.c}"><span class="dot"></span><span>${i.t}</span></div>`).join('')}</div></div>`:''}
-  ${budCats.length?`<div class="card"><div class="sechead"><h2>${T('Ngân sách theo danh mục')}</h2><button class="link" data-act="goBudgets">${T('Chỉnh')}</button></div>${budCats.map(c=>{const sp=tx.filter(t=>t.cat===c.id&&t.type==='ex').reduce((a,t)=>a+t.amt,0),p=sp/c.budget;return `<div class="budrow"><div class="t"><span>${c.icon} ${esc(T(c.name))}</span><span class="num" style="color:${p>1?'var(--bad)':'var(--muted)'}">${fmtS(sp)} / ${fmtS(c.budget)}</span></div><div class="bar"><i style="width:${Math.min(100,p*100)}%;background:${p>1?'var(--bad)':p>.8?'var(--warn)':c.color}"></i></div></div>`}).join('')}</div>`:''}
+  ${budCats.length?`<div class="card"><div class="sechead"><h2>${T('Ngân sách theo danh mục')}</h2><button class="link" data-act="goBudgets">${T('Chỉnh')}</button></div>${budCats.map(c=>{const sp=tx.filter(t=>t.cat===c.id&&t.type==='ex').reduce((a,t)=>a+t.amt,0),p=sp/c.budget;return `<div class="budrow" data-catd="${c.id}" style="cursor:pointer"><div class="t"><span>${c.icon} ${esc(T(c.name))}</span><span class="num" style="color:${p>1?'var(--bad)':'var(--muted)'}">${fmtS(sp)} / ${fmtS(c.budget)}</span></div><div class="bar"><i style="width:${Math.min(100,p*100)}%;background:${p>1?'var(--bad)':p>.8?'var(--warn)':c.color}"></i></div></div>`}).join('')}</div>`:''}
   <div class="card"><div class="sechead"><h2>${T('Giao dịch gần đây')}</h2><button class="link" data-act="goCal">${T('Xem lịch')}</button></div>${txList(tx.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12))}</div>
   </section>`;
   const qi=$('#qi');
@@ -431,16 +444,17 @@ function donut(parts,total){
   if(!total)return `<svg viewBox="0 0 150 150" width="150" height="150"><circle cx="75" cy="75" r="56" fill="none" stroke="var(--sunk)" stroke-width="20"/></svg>`;
   let a=-Math.PI/2,h='';const R=56;
   for(const p of parts){const f=p.v/total;if(f<=0)continue;const a2=a+f*Math.PI*2;
-    if(f>.9999){h+=`<circle cx="75" cy="75" r="${R}" fill="none" stroke="${p.color}" stroke-width="20"/>`;break}
+    if(f>.9999){h+=`<circle data-catd="${p.id}" cx="75" cy="75" r="${R}" fill="none" stroke="${p.color}" stroke-width="20"/>`;break}
     const x1=75+R*Math.cos(a),y1=75+R*Math.sin(a),x2=75+R*Math.cos(a2),y2=75+R*Math.sin(a2);
-    h+=`<path d="M${x1} ${y1}A${R} ${R} 0 ${f>.5?1:0} 1 ${x2} ${y2}" fill="none" stroke="${p.color}" stroke-width="20"/>`;a=a2}
+    h+=`<path data-catd="${p.id}" d="M${x1} ${y1}A${R} ${R} 0 ${f>.5?1:0} 1 ${x2} ${y2}" fill="none" stroke="${p.color}" stroke-width="20"/>`;a=a2}
   return `<svg viewBox="0 0 150 150" width="150" height="150" role="img" aria-label="${T('Biểu đồ tròn theo danh mục')}">${h}<text x="75" y="72" text-anchor="middle" font-size="10">${T('Tổng chi')}</text><text x="75" y="88" text-anchor="middle" font-size="14" font-weight="700" style="fill:var(--fg)">${fmtS(total)}</text></svg>`;
 }
 function bars(data){ // [{label,ex,in}]
-  const W=520,H=190,P=28,max=Math.max(1,...data.map(d=>Math.max(d.ex,d.in)));
-  const step=Math.pow(10,Math.floor(Math.log10(max)));const nice=Math.ceil(max/step)*step;
+  const W=520,H=190,P=44,max=Math.max(1,...data.map(d=>Math.max(d.ex,d.in)));
+  let step=Math.pow(10,Math.floor(Math.log10(max))),nice=Math.ceil(max/step)*step,nt=Math.round(nice/step);
+  while(nt>5){step*=2;nice=Math.ceil(max/step)*step;nt=Math.round(nice/step)}
   const bw=(W-P-8)/data.length;let g='';
-  for(let i=0;i<=3;i++){const v=nice*i/3,y=H-22-(H-40)*i/3;g+=`<line x1="${P}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${P-4}" y="${y+3}" text-anchor="end" font-size="9">${fmtS(v)}</text>`}
+  for(let i=0;i<=nt;i++){const v=step*i,y=H-22-(H-40)*i/nt;g+=`<line x1="${P}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${P-4}" y="${y+3}" text-anchor="end" font-size="9">${fmtS(v)}</text>`}
   data.forEach((d,i)=>{const x=P+8+i*bw,h1=(H-40)*d.ex/nice,h2=(H-40)*d.in/nice,w=Math.min(14,bw/3);
     g+=`<rect x="${x+bw/2-w-1}" y="${H-22-h2}" width="${w}" height="${h2}" rx="3" fill="var(--income)" opacity=".85"/><rect x="${x+bw/2+1}" y="${H-22-h1}" width="${w}" height="${h1}" rx="3" fill="${d.cur?'var(--accent)':'var(--muted)'}"/><text x="${x+bw/2}" y="${H-6}" text-anchor="middle" font-size="10">${d.label}</text>`});
   return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:300px" role="img" aria-label="${T('Biểu đồ thu chi theo tháng')}">${g}</svg></div>`;
@@ -457,7 +471,7 @@ function vReport(){
   $('#view').innerHTML=`<section>
     <div class="seg"><button data-rep="month" class="${!year?'on':''}">${T('Tháng')}</button><button data-rep="year" class="${year?'on':''}">${T('Năm')}</button></div>
     <div class="card"><div class="sechead"><h2>${T('Chi theo danh mục')}</h2></div>
-      <div class="donutwrap">${donut(parts,total)}<div class="legend">${parts.length?parts.map(p=>`<div><i style="background:${p.color}"></i><span>${cat(p.id).icon} ${esc(T(cat(p.id).name))}</span><b class="num">${fmtS(p.v)}</b><small class="num" style="color:var(--muted);width:34px;text-align:right">${Math.round(p.v/total*100)}%</small></div>`).join(''):'<div class="empty">'+T('Chưa có chi tiêu.')+'</div>'}</div></div></div>
+      <div class="donutwrap">${donut(parts,total)}<div class="legend">${parts.length?parts.map(p=>`<button data-catd="${p.id}"><i style="background:${p.color}"></i><span>${cat(p.id).icon} ${esc(T(cat(p.id).name))}</span><b class="num">${fmtS(p.v)}</b><small class="num" style="color:var(--muted);width:34px;text-align:right">${Math.round(p.v/total*100)}%</small><span style="color:var(--muted)">›</span></button>`).join(''):'<div class="empty">'+T('Chưa có chi tiêu.')+'</div>'}</div></div>${parts.length?`<div class="hint">${T('Bấm vào một danh mục để xem chi tiết.')}</div>`:''}</div>
     ${needCard(tx,T('Bắt buộc và tùy chọn'))}
     <div class="card"><div class="sechead"><h2>${T(year?'12 tháng':'6 tháng gần nhất')}</h2><span class="hint" style="margin:0">${T('Trung bình {0}/tháng',fmtS(avg))}</span></div>${bars(series)}
       <div class="hint" style="display:flex;gap:14px"><span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--income)"></i> ${T('Thu')}</span><span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--muted)"></i> ${T('Chi')}</span></div></div>
@@ -499,6 +513,24 @@ function vSettings(){
 }
 
 function menhText(y){const m=ELEM[menhOf(y)],s=ELEM[m.sinh];return T('Năm {0} thuộc mệnh {1}. Màu bản mệnh: {2}. Màu tương sinh ({3} sinh {1}): {4}. Bấm ô {3} ở trên nếu bạn muốn dùng màu tương sinh.',y,'<b>'+T(m.name)+'</b>',T(m.sw),T(s.name),T(s.sw))}
+function catDetail(id,forceMonth){
+  const year=repMode==='year'&&!forceMonth,k=year?String(cur.getFullYear()):monthKey(cur),c=cat(id);
+  const list=S.tx.filter(t=>t.cat===id&&t.date.startsWith(k)).sort((a,b)=>b.date.localeCompare(a.date));
+  const tot=list.reduce((a,t)=>a+t.amt,0),g={};
+  list.forEach(t=>{const n=T(t.note||c.name);(g[n]=g[n]||{n,v:0,c:0});g[n].v+=t.amt;g[n].c++});
+  const top=Object.values(g).sort((a,b)=>b.v-a.v);
+  const series=[];for(let i=year?11:5;i>=0;i--){const d=year?new Date(cur.getFullYear(),11-i,1):new Date(cur.getFullYear(),cur.getMonth()-i,1);
+    const v=inMonth(monthKey(d)).filter(t=>t.cat===id).reduce((a,t)=>a+t.amt,0);series.push({label:monLabel(d.getMonth()),ex:c.type==='ex'?v:0,in:c.type==='in'?v:0,cur:!year&&i===0})}
+  const n=list.length,avg=n?tot/n:0,nd=new Set(list.map(t=>t.date)).size;
+  sheet(`<div style="display:flex;align-items:center;gap:12px"><span class="ico" style="background:${c.color}22;width:46px;height:46px;font-size:24px">${c.icon}</span><div style="flex:1;min-width:0"><h3>${esc(T(c.name))}</h3><small class="num" style="color:var(--muted)">${year?T('Năm {0}',cur.getFullYear()):monthLabel(cur)}</small></div><button class="link" id="cdx">${T('Đóng')}</button></div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+      <div class="ins" style="display:block"><div class="label">${T('Tổng')}</div><b class="num" style="font-size:16px">${fmtS(tot)}</b></div>
+      <div class="ins" style="display:block"><div class="label">${T('Số giao dịch')}</div><b class="num" style="font-size:16px">${n}</b></div>
+      <div class="ins" style="display:block"><div class="label">${T('Trung bình')}</div><b class="num" style="font-size:16px">${fmtS(avg)}</b></div></div>
+    <div><div class="label" style="margin-bottom:4px">${T('Xu hướng')}</div>${bars(series)}</div>
+    ${top.length?`<div><div class="label" style="margin-bottom:6px">${T('Chi vào những gì')}</div>${top.slice(0,8).map(x=>`<div class="budrow"><div class="t"><span>${esc(x.n)} <small style="color:var(--muted);font-weight:500">×${x.c}</small></span><span class="num">${fmtS(x.v)} · ${Math.round(x.v/tot*100)}%</span></div><div class="bar"><i style="width:${x.v/top[0].v*100}%;background:${c.color}"></i></div></div>`).join('')}</div>`:''}
+    <div><div class="label">${T('Tất cả giao dịch')} (${n}${nd?' · '+T('{0} ngày',nd):''})</div>${txList(list)}</div>`,()=>{$('#cdx').onclick=close});
+}
 // ---------- Sheets ----------
 function close(){$('#layer').innerHTML=''}
 function sheet(html,bind){
@@ -599,7 +631,8 @@ function dateAny(v){const s=String(v??'').trim();let m;
   const d=new Date(s);return isNaN(d)?null:ymd(d)}
 function amtAny(v){if(typeof v==='number')return v;let s=String(v??'').trim();if(!s)return NaN;
   const neg=/^[-−(]/.test(s)||/-$/.test(s);s=s.replace(/[.,]\d{1,2}$/,'');const n=parseInt(s.replace(/\D/g,''),10);return isNaN(n)?NaN:(neg?-n:n)}
-const COLS={date:/^(date|ngày|ngay|inputdatestring|datetime|time|thời gian|日期|날짜|日付|วันที่)/i,amt:/(amount|số tiền|so tien|money|giá trị|value|金额|금액|金額|จำนวน)/i,cat:/(category|danh mục|danh muc|nhóm|分类|카테고리|カテゴリ|หมวด)/i,note:/(note|memo|ghi chú|ghi chu|description|mô tả|nội dung|title|备注|메모|メモ|บันทึก)/i,type:/^(type|loại|loai|kind|类型|유형|種類|ประเภท)$/i};
+const COLS={date:/^(date|ngày|ngay|inputdatestring|datetime|time|thời gian|日期|날짜|日付|วันที่)/i,amt:/(amount|số tiền|so tien|money|giá trị|value|金额|금액|金額|จำนวน)/i,cat:/(category|danh mục|danh muc|nhóm|分类|카테고리|カテゴリ|หมวด)/i,note:/(note|memo|ghi chú|ghi chu|description|mô tả|nội dung|title|备注|메모|メモ|บันทึก)/i,type:/^(type|loại|loai|kind|类型|유형|種類|ประเภท)$/i,need:/^(bắt buộc|bat buoc|essential|need|必要|필수|必須|จำเป็น)/i};
+const needWord=v=>{const s=String(v??'').trim();if(/^(có|co|yes|true|1|x|bắt buộc|essential|必要|필수|必須|จำเป็น)$/i.test(s))return true;if(/^(không|khong|no|false|0|tùy chọn|optional|可选|선택|任意|ไม่จำเป็น)$/i.test(s))return false};
 const isInWord=v=>/^(in|income|thu|thu nhập|credit|收入|수입|収入|รายรับ)/i.test(String(v).trim());
 function rowsToItems(objs){
   if(!objs.length)return null;const keys=Object.keys(objs[0]);const col={};
@@ -608,7 +641,7 @@ function rowsToItems(objs){
   const anyNeg=objs.some(o=>amtAny(o[col.amt])<0);
   return objs.map(o=>{const a=amtAny(o[col.amt]),date=dateAny(o[col.date]);if(!date||!a)return null;
     const tv=col.type?o[col.type]:'';const type=col.type&&String(tv).trim()!==''?(isInWord(tv)||String(tv).trim()==='1'?'in':'ex'):(anyNeg&&a>0?'in':'ex');
-    return {date,amt:Math.abs(a),type,catName:col.cat?String(o[col.cat]||'').trim():'',note:col.note?String(o[col.note]||'').trim():''}}).filter(Boolean);
+    return {date,amt:Math.abs(a),type,catName:col.cat?String(o[col.cat]||'').trim():'',note:col.note?String(o[col.note]||'').trim():'',need:col.need?needWord(o[col.need]):undefined}}).filter(Boolean);
 }
 function parseImport(text,name){
   text=text.replace(/^﻿/,'');const t=text.trim();
@@ -662,7 +695,7 @@ function importSheet(){
         const e=(EMO.find(([re])=>re.test(g.name))||[0,g.type==='in'?'💰':'🧾'])[1];
         const c={id:uid(),name:g.name,icon:(g.src&&g.src.icon)||e,color:(g.src&&g.src.color)||(g.color&&/^#[0-9a-f]{6}$/i.test(g.color)?g.color:COLORS[ci++%COLORS.length]),type:g.type,budget:0,kw:[]};
         if(g.type==='ex')c.essential=g.src&&g.src.essential!==undefined?g.src.essential:ESS_RE.test(g.name);S.cats.push(c);made[k]=c.id});
-      P.fresh.forEach(x=>{const k=x.type+'|'+x.catName;const t={id:uid(),date:x.date,cat:made[k]||map[k],amt:x.amt,note:x.note||'',type:x.type};if(x.need!==undefined)t.need=x.need;S.tx.push(t)});
+      P.fresh.forEach(x=>{const k=x.type+'|'+x.catName;const t={id:uid(),date:x.date,cat:made[k]||map[k],amt:x.amt,note:x.note||'',type:x.type};if(x.need!==undefined&&x.type==='ex')t.need=x.need;S.tx.push(t)});
       save();close();toast(T('Đã nhập {0} giao dịch',P.fresh.length));
       const last=P.fresh.map(x=>x.date).sort().at(-1);cur=parseYMD(last.slice(0,7)+'-01');tab='home';render()};
   });
@@ -755,6 +788,7 @@ function cloudAction(a){
 
 // ---------- Events ----------
 document.addEventListener('click',e=>{
+  const cd=e.target.closest('[data-catd]');if(cd){catDetail(cd.dataset.catd,tab!=='report');return}
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.tab){tab=b.dataset.tab;render();window.scrollTo(0,0);return}
   if(b.dataset.edit){txSheet(S.tx.find(t=>t.id===b.dataset.edit));return}
