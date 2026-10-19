@@ -2,6 +2,8 @@
 
 App ghi chép chi tiêu đơn giản, đẹp và thông minh. Bạn gõ một câu như “phở 45k” là app tự ghi vào đúng danh mục, nhắc ngân sách, dự báo cuối tháng sẽ chi bao nhiêu, và cho biết khoản nào **bắt buộc**, khoản nào **có thể cắt giảm**. Dữ liệu tự đồng bộ giữa điện thoại và máy tính.
 
+🌏 **Ngôn ngữ:** Tiếng Việt, English, ไทย, 中文, 한국어, 日本語 (đổi trong Cài đặt → Ngôn ngữ).
+
 ## 📲 Tải app
 
 | Thiết bị | Cách cài |
