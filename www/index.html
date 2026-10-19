@@ -256,7 +256,7 @@ function fresh(withSample){
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.cats||(S.isSample&&window.makeSample&&!S.cats.find(c=>c.id==='con'))) S=fresh(true);
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function persist(){if(S.demo)return;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function save(){persist();cloudPush()}
 const recId=key=>'r_'+key.replace(/[^a-zA-Z0-9_-]/g,'_');
 const ELEM={
@@ -354,7 +354,7 @@ function render(){
   $('#mLabel').textContent=repMode==='year'&&tab==='report'?T('Năm {0}',cur.getFullYear()):monthLabel(cur);
   ({home:vHome,cal:vCal,report:vReport,settings:vSettings})[tab]();
 }
-function sampleBanner(){return S.isSample?`<div class="banner"><span>${T('Đây là dữ liệu mẫu để bạn xem thử. Khi sẵn sàng, xóa đi để bắt đầu sổ của riêng bạn.')}</span><button data-act="clearSample">${T('Xóa mẫu')}</button></div>`:''}
+function sampleBanner(){if(S.demo)return `<div class="banner"><span>${T('Bạn đang xem thử dữ liệu mẫu của một gia đình 4 người. Dữ liệu thật của bạn vẫn được giữ nguyên.')}</span><button data-act="exitDemo">${T('Thoát xem thử')}</button></div>`;return S.isSample?`<div class="banner"><span>${T('Đây là dữ liệu mẫu để bạn xem thử. Khi sẵn sàng, xóa đi để bắt đầu sổ của riêng bạn.')}</span><button data-act="clearSample">${T('Xóa mẫu')}</button></div>`:''}
 
 function insights(k){
   const tx=inMonth(k),spent=sum(tx,'ex'),inc=sum(tx,'in'),out=[];
@@ -503,6 +503,7 @@ function vSettings(){
       <div class="hint" style="margin:0 0 10px">${T('Dữ liệu chỉ lưu trong trình duyệt trên máy này. Hãy sao lưu định kỳ.')}</div>
       <div class="row2"><button class="btn ghost" data-act="backup">${T('Sao chép bản sao lưu')}</button><button class="btn ghost" data-act="restore">${T('Khôi phục')}</button></div>
       <button class="btn ghost" style="width:100%;margin-top:10px" data-act="import">${T('Nhập từ app khác (CSV, JSON)')}</button>
+      <button class="btn ghost" style="width:100%;margin-top:10px" data-act="${S.demo?'exitDemo':'demo'}">${T(S.demo?'Thoát xem thử':'Xem thử dữ liệu mẫu (gia đình 4 người)')}</button>
       <button class="btn danger" style="width:100%;margin-top:10px" data-act="wipe">${T('Xóa toàn bộ dữ liệu')}</button></div>
     <div class="brand"><img src="icon-192.png" alt=""><div><b>Liku Money</b><small>by Liku · Linh Kute ♡</small></div></div>
   </section>`;
@@ -749,7 +750,7 @@ async function startSync(){
   }catch(e){setStatus(T('Lỗi đồng bộ:')+' '+e.message+(String(e.code).includes('permission')?' '+T('(kiểm tra Rules của Firestore)'):''),true)}
 }
 function cloudPush(){
-  if(!fb.user||!fb.base)return;
+  if(S.demo||!fb.user||!fb.base)return;
   const {u,tx}=refs(),now=new Map(S.tx.map(t=>[t.id,JSON.stringify(t)])),ops=[];
   now.forEach((j,id)=>{if(fb.base.get(id)!==j){const t=JSON.parse(j);delete t.id;ops.push(b=>b.set(tx.doc(id),t))}});
   fb.base.forEach((j,id)=>{if(!now.has(id))ops.push(b=>b.delete(tx.doc(id)))});
@@ -809,6 +810,8 @@ document.addEventListener('click',e=>{
   if(a==='backup')copyText(JSON.stringify(S),T('Đã sao chép bản sao lưu. Hãy dán vào Ghi chú hoặc email cho chính bạn.'));
   if(a==='restore')restoreSheet();
   if(a==='import')importSheet();
+  if(a==='demo'){const th=S.theme,ac=S.accent;S=fresh(true);S.demo=true;S.theme=th;S.accent=ac;cur=new Date(new Date().getFullYear(),new Date().getMonth(),1);tab='home';render();window.scrollTo(0,0);return}
+  if(a==='exitDemo'){location.reload();return}
   if(a==='csv'){const k=repMode==='year'?String(cur.getFullYear()):monthKey(cur);
     const rows=[['Ngày','Loại','Danh mục','Bắt buộc','Ghi chú','Số tiền'].map(x=>T(x))].concat(S.tx.filter(t=>t.date.startsWith(k)).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>[t.date,T(t.type==='in'?'Thu':'Chi'),T(cat(t.cat).name),t.type==='ex'?T(isNeed(t)?'Bắt buộc':'Tùy chọn'):'',T(t.note),t.type==='in'?t.amt:-t.amt]));
     copyText(rows.map(r=>r.join('\t')).join('\n'),T('Đã sao chép. Dán thẳng vào Excel hoặc Google Sheets.'))}
