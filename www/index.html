@@ -4,11 +4,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12805C">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Linh Cute Money">
+<meta name="apple-mobile-web-app-title" content="Liku Money">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Linh Cute Money</title>
+<title>Liku Money</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <style>
@@ -487,7 +487,7 @@ function vSettings(){
       <div class="hint" style="margin:0 0 10px">${T('Dữ liệu chỉ lưu trong trình duyệt trên máy này. Hãy sao lưu định kỳ.')}</div>
       <div class="row2"><button class="btn ghost" data-act="backup">${T('Sao chép bản sao lưu')}</button><button class="btn ghost" data-act="restore">${T('Khôi phục')}</button></div>
       <button class="btn danger" style="width:100%;margin-top:10px" data-act="wipe">${T('Xóa toàn bộ dữ liệu')}</button></div>
-    <div class="brand"><img src="icon-192.png" alt=""><div><b>Linh Cute Money</b><small>by Linh Cute ♡</small></div></div>
+    <div class="brand"><img src="icon-192.png" alt=""><div><b>Liku Money</b><small>by Liku · Linh Kute ♡</small></div></div>
   </section>`;
   $('#by').onchange=e=>{const y=+e.target.value;if(y<1900||y>2100){toast(T('Nhập năm sinh 4 chữ số'));return}S.birthYear=y;S.accent=menhOf(y);save();applyTheme();toast(T('Mệnh {0}. Đã đổi màu giao diện',T(ELEM[S.accent].name)));render()};
   $('#ac').oninput=e=>{S.accent=e.target.value;applyTheme()};$('#ac').onchange=()=>{save();render()};
