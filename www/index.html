@@ -4,11 +4,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12805C">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Sổ Chi Tiêu">
+<meta name="apple-mobile-web-app-title" content="Linh Cute Money">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Sổ Chi Tiêu</title>
+<title>Linh Cute Money</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <style>
@@ -27,6 +27,10 @@
   --bg:#0F1513; --surface:#18201D; --sunk:#222C28; --fg:#E7EEEA; --muted:#93A19B; --line:#2A3531;
   --accent:#3CC594; --accent-soft:#173A2E; --ink:#BFF0DC; --good:#3CC594; --warn:#E9A23B; --bad:#F06A5E; --income:#6FA0FF; color-scheme:dark}
 *{box-sizing:border-box}
+.brand{display:flex;align-items:center;gap:12px;justify-content:center;padding:8px 0 4px;color:var(--muted)}
+.brand img{width:44px;height:44px;border-radius:14px}
+.brand b{display:block;color:var(--fg)}
+.brand small{font-size:12.5px}
 html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}
 [hidden]{display:none!important}
@@ -483,6 +487,7 @@ function vSettings(){
       <div class="hint" style="margin:0 0 10px">${T('Dữ liệu chỉ lưu trong trình duyệt trên máy này. Hãy sao lưu định kỳ.')}</div>
       <div class="row2"><button class="btn ghost" data-act="backup">${T('Sao chép bản sao lưu')}</button><button class="btn ghost" data-act="restore">${T('Khôi phục')}</button></div>
       <button class="btn danger" style="width:100%;margin-top:10px" data-act="wipe">${T('Xóa toàn bộ dữ liệu')}</button></div>
+    <div class="brand"><img src="icon-192.png" alt=""><div><b>Linh Cute Money</b><small>by Linh Cute ♡</small></div></div>
   </section>`;
   $('#by').onchange=e=>{const y=+e.target.value;if(y<1900||y>2100){toast(T('Nhập năm sinh 4 chữ số'));return}S.birthYear=y;S.accent=menhOf(y);save();applyTheme();toast(T('Mệnh {0}. Đã đổi màu giao diện',T(ELEM[S.accent].name)));render()};
   $('#ac').oninput=e=>{S.accent=e.target.value;applyTheme()};$('#ac').onchange=()=>{save();render()};

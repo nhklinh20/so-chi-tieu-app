@@ -1,6 +1,11 @@
-# 💰 Sổ Chi Tiêu
+<img src="www/icon-192.png" width="96" align="left" style="border-radius:20px">
 
-App ghi chép chi tiêu đơn giản, đẹp và thông minh. Bạn gõ một câu như “phở 45k” là app tự ghi vào đúng danh mục, nhắc ngân sách, dự báo cuối tháng sẽ chi bao nhiêu, và cho biết khoản nào **bắt buộc**, khoản nào **có thể cắt giảm**. Dữ liệu tự đồng bộ giữa điện thoại và máy tính.
+# Linh Cute Money
+
+*Một app trong gia đình **Linh Cute** ♡*
+<br clear="left">
+
+Linh Cute Money là app ghi chép chi tiêu đơn giản, đẹp và thông minh. Bạn gõ một câu như “phở 45k” là app tự ghi vào đúng danh mục, nhắc ngân sách, dự báo cuối tháng sẽ chi bao nhiêu, và cho biết khoản nào **bắt buộc**, khoản nào **có thể cắt giảm**. Dữ liệu tự đồng bộ giữa điện thoại và máy tính.
 
 🌏 **Ngôn ngữ:** Tiếng Việt, English, ไทย, 中文, 한국어, 日本語 (đổi trong Cài đặt → Ngôn ngữ).
 
@@ -8,7 +13,7 @@ App ghi chép chi tiêu đơn giản, đẹp và thông minh. Bạn gõ một c�
 
 | Thiết bị | Cách cài |
 |---|---|
-| **Android** (Samsung, Xiaomi, Oppo…) | **[⬇️ Tải SoChiTieu.apk](https://github.com/nhklinh20/so-chi-tieu-app/releases/latest/download/SoChiTieu.apk)** |
+| **Android** (Samsung, Xiaomi, Oppo…) | **[⬇️ Tải LinhCuteMoney.apk](https://github.com/nhklinh20/so-chi-tieu-app/releases/latest/download/LinhCuteMoney.apk)** |
 | **iPhone / iPad** | Mở **[nhklinh20.github.io/so-chi-tieu-app](https://nhklinh20.github.io/so-chi-tieu-app/)** bằng **Safari** |
 | **Máy tính** | Mở **[nhklinh20.github.io/so-chi-tieu-app](https://nhklinh20.github.io/so-chi-tieu-app/)** bằng trình duyệt bất kỳ |
 
