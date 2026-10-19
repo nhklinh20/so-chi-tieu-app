@@ -1,0 +1,6 @@
+{
+  "appId": "com.linh.sochitieu",
+  "appName": "Sổ Chi Tiêu",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}

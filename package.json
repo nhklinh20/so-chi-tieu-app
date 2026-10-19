@@ -1,0 +1,17 @@
+{
+  "name": "so-chi-tieu",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "copy-lib": "mkdir -p www/lib && cp node_modules/firebase/firebase-app-compat.js node_modules/firebase/firebase-auth-compat.js node_modules/firebase/firebase-firestore-compat.js www/lib/"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.2.1",
+    "@capacitor/core": "6.2.1",
+    "firebase": "10.14.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "6.2.1"
+  }
+}
