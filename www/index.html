@@ -124,6 +124,8 @@ nav.tabs .add{align-self:start;margin-top:-18px;width:56px;height:56px;justify-s
 @keyframes up{from{transform:translateY(30px);opacity:.6}}
 @media (prefers-reduced-motion:reduce){.sheet{animation:none}}
 .sheet h3{margin:0;font-size:17px}
+.sheet{overflow-x:hidden}
+.sheet>*{min-width:0}
 .typetog{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:12px;padding:3px}
 .typetog button{padding:9px;border-radius:10px;font-weight:600;color:var(--muted)}
 .typetog button.on{background:var(--surface);color:var(--fg)}
@@ -486,6 +488,7 @@ function vSettings(){
     <div class="card"><div class="sechead"><h2>${T('Sao lưu & khôi phục')}</h2></div>
       <div class="hint" style="margin:0 0 10px">${T('Dữ liệu chỉ lưu trong trình duyệt trên máy này. Hãy sao lưu định kỳ.')}</div>
       <div class="row2"><button class="btn ghost" data-act="backup">${T('Sao chép bản sao lưu')}</button><button class="btn ghost" data-act="restore">${T('Khôi phục')}</button></div>
+      <button class="btn ghost" style="width:100%;margin-top:10px" data-act="import">${T('Nhập từ app khác (CSV, JSON)')}</button>
       <button class="btn danger" style="width:100%;margin-top:10px" data-act="wipe">${T('Xóa toàn bộ dữ liệu')}</button></div>
     <div class="brand"><img src="icon-192.png" alt=""><div><b>Liku Money</b><small>by Liku · Linh Kute ♡</small></div></div>
   </section>`;
@@ -576,6 +579,94 @@ function restoreSheet(){
 }
 function confirmSheet(text,btn,fn){sheet(`<h3>${text}</h3><div class="btns"><button class="btn ghost" id="cx">${T('Hủy')}</button><button class="btn danger" id="cy">${btn}</button></div>`,()=>{$('#cx').onclick=close;$('#cy').onclick=()=>{fn();close();render()}})}
 let tt;function toast(m){let el=$('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');document.body.appendChild(el)}el.textContent=m;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,2200)}
+
+// ---------- Import from other apps ----------
+function csvRows(text){
+  const first=(text.split('\n').find(l=>l.trim())||'');
+  const d=first.includes('\t')?'\t':(first.split(';').length>first.split(',').length?';':',');
+  const rows=[];let row=[],f='',q=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}
+    else if(ch==='"')q=true;else if(ch===d){row.push(f);f=''}
+    else if(ch==='\n'){row.push(f.replace(/\r$/,''));rows.push(row);row=[];f=''}else f+=ch}
+  if(f||row.length){row.push(f.replace(/\r$/,''));rows.push(row)}
+  return rows.filter(r=>r.some(c=>c.trim()));
+}
+function dateAny(v){const s=String(v??'').trim();let m;
+  if(/^\d{10,13}$/.test(s)){const d=new Date(+s*(s.length===10?1000:1));return isNaN(d)?null:ymd(d)}
+  if(m=s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/))return ymd(new Date(+m[1],m[2]-1,+m[3]));
+  if(m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/)){let y=+m[3];if(y<100)y+=2000;return ymd(new Date(y,m[2]-1,+m[1]))}
+  const d=new Date(s);return isNaN(d)?null:ymd(d)}
+function amtAny(v){if(typeof v==='number')return v;let s=String(v??'').trim();if(!s)return NaN;
+  const neg=/^[-−(]/.test(s)||/-$/.test(s);s=s.replace(/[.,]\d{1,2}$/,'');const n=parseInt(s.replace(/\D/g,''),10);return isNaN(n)?NaN:(neg?-n:n)}
+const COLS={date:/^(date|ngày|ngay|inputdatestring|datetime|time|thời gian|日期|날짜|日付|วันที่)/i,amt:/(amount|số tiền|so tien|money|giá trị|value|金额|금액|金額|จำนวน)/i,cat:/(category|danh mục|danh muc|nhóm|分类|카테고리|カテゴリ|หมวด)/i,note:/(note|memo|ghi chú|ghi chu|description|mô tả|nội dung|title|备注|메모|メモ|บันทึก)/i,type:/^(type|loại|loai|kind|类型|유형|種類|ประเภท)$/i};
+const isInWord=v=>/^(in|income|thu|thu nhập|credit|收入|수입|収入|รายรับ)/i.test(String(v).trim());
+function rowsToItems(objs){
+  if(!objs.length)return null;const keys=Object.keys(objs[0]);const col={};
+  for(const k in COLS)col[k]=keys.find(h=>COLS[k].test(String(h).trim()));
+  if(!col.date||!col.amt)return null;
+  const anyNeg=objs.some(o=>amtAny(o[col.amt])<0);
+  return objs.map(o=>{const a=amtAny(o[col.amt]),date=dateAny(o[col.date]);if(!date||!a)return null;
+    const tv=col.type?o[col.type]:'';const type=col.type&&String(tv).trim()!==''?(isInWord(tv)||String(tv).trim()==='1'?'in':'ex'):(anyNeg&&a>0?'in':'ex');
+    return {date,amt:Math.abs(a),type,catName:col.cat?String(o[col.cat]||'').trim():'',note:col.note?String(o[col.note]||'').trim():''}}).filter(Boolean);
+}
+function parseImport(text,name){
+  text=text.replace(/^﻿/,'');const t=text.trim();
+  if(t[0]==='{'||t[0]==='['){let j;try{j=JSON.parse(t)}catch(e){return null}
+    if(j&&Array.isArray(j.cats)&&Array.isArray(j.tx)){const cn={};j.cats.forEach(c=>cn[c.id]=c);
+      return {fmt:'Liku backup',items:j.tx.map(x=>({date:x.date,amt:Math.abs(+x.amt||0),type:x.type==='in'?'in':'ex',catName:(cn[x.cat]||{}).name||'',note:x.note||'',need:x.need,src:cn[x.cat]})).filter(x=>x.date&&x.amt)}}
+    const arr=Array.isArray(j)?j:Object.values(j||{}).find(v=>Array.isArray(v)&&v.length&&typeof v[0]==='object');
+    if(!arr)return null;const items=rowsToItems(arr);return items?{fmt:'JSON',items}:null}
+  if(/^#DAILY_DATAS/m.test(text)){
+    const sec={};let cur=null;text.split('\n').forEach(l=>{if(/^#\w/.test(l)){cur=l.trim().slice(1);sec[cur]=[]}else if(cur)sec[cur].push(l)});
+    const tab=k=>{const r=csvRows((sec[k]||[]).join('\n'));if(!r.length)return[];const h=r[0];return r.slice(1).map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]])))};
+    const cats={};tab('CATEGORIES').forEach(c=>cats[c.id]=c);
+    const items=tab('DAILY_DATAS').map(d=>{const a=amtAny(d.amount),date=dateAny(d.inputDateString);if(!date||!a)return null;const c=cats[d.categoryId]||{};
+      return {date,amt:Math.abs(a),type:String(d.type)==='1'?'in':'ex',catName:(c.name||'').trim(),note:(d.memo||'').trim(),color:c.color?'#'+c.color:null}}).filter(Boolean);
+    return {fmt:'MoneyNote / Kakeibo',items}}
+  const r=csvRows(text);if(r.length<2)return null;const h=r[0];
+  const items=rowsToItems(r.slice(1).map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]]))));return items?{fmt:'CSV',items}:null;
+}
+const EMO=[[/ăn|an uong|food|cơm|nhà hàng|餐|식|食/i,'🍜'],[/cà phê|coffee|cafe|trà/i,'☕'],[/chợ|siêu thị|grocer/i,'🛒'],[/điện thoại|data|phone/i,'📱'],[/điện|nước|internet|wifi|utilit/i,'💡'],[/y tế|thuốc|bệnh|health|khám/i,'💊'],[/giáo dục|học|education|school|sách/i,'📚'],[/đi lại|xe|xăng|transport|taxi|grab/i,'🚗'],[/love|yêu|hẹn hò/i,'❤️'],[/bảo trì|sửa|repair/i,'🔧'],[/mua sắm|shopping|shopee/i,'👕'],[/làm đẹp|beauty|mỹ phẩm/i,'💄'],[/gia đình|family|con/i,'👶'],[/work|công việc|văn phòng/i,'💼'],[/gia dụng|điện tử|electronic/i,'🔧'],[/nhà|rent|house/i,'🏠'],[/giải trí|phim|game|du lịch/i,'🎬'],[/lương|salary/i,'💼'],[/thưởng|bonus/i,'🎉'],[/đầu tư|invest|lãi/i,'📈'],[/phụ cấp|allowance|phụ|tạm thời|side/i,'💰'],[/quà|gift/i,'🎁']];
+const ESS_RE=/y tế|thuốc|bệnh|giáo dục|học phí|điện|nước|internet|nhà|thuê|bảo hiểm|health|rent|tuition|utilit|medic/i;
+function matchCat(name,type){if(!name)return type==='ex'?(S.cats.find(c=>c.id==='khac')||S.cats.find(c=>c.type==='ex')).id:S.cats.find(c=>c.type==='in').id;
+  const n=norm(name);const c=S.cats.find(c=>c.type===type&&(norm(c.name)===n||norm(T(c.name))===n));if(c)return c.id;
+  const al=[[/^(di lai|giao thong|xang xe|transport)/,'xe'],[/^(y te|suc khoe|health|medical)/,'sk'],[/^(giao duc|hoc tap|education)/,'hoc'],[/^(an uong|food)/,'an'],[/^(tien luong|luong|salary)/,'luong'],[/^(tien thuong|thuong|bonus)/,'thuong'],[/^(thu nhap phu|side)/,'phu'],[/^(nha o|thue nha|tien nha|housing|rent)/,'nha'],[/^(di cho|groceries)/,'cho'],[/^(giai tri|entertainment)/,'gt']].find(([re])=>re.test(n));
+  return al&&S.cats.find(c=>c.id===al[1]&&c.type===type)?al[1]:'new'}
+function importSheet(){
+  sheet(`<h3>${T('Nhập dữ liệu từ app khác')}</h3>
+    <div class="hint" style="margin:0">${T('Chọn tệp CSV hoặc JSON (MoneyNote, Kakeibo, Money Lover, bản sao lưu Liku…). App tự nhận dạng cột ngày, số tiền, danh mục và ghi chú.')}</div>
+    <input type="file" id="impf" style="max-width:100%" accept=".csv,.json,.txt,text/csv,application/json,text/plain">
+    <div id="impv"></div><div class="btns"><button class="btn ghost" id="impx">${T('Hủy')}</button><button class="btn pri" id="impgo" disabled>${T('Nhập')}</button></div>`,()=>{
+    $('#impx').onclick=close;let P=null,map={};
+    $('#impf').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{
+      P=parseImport(String(r.result),f.name);
+      if(!P||!P.items.length){$('#impv').innerHTML=`<div class="hint" style="color:var(--bad)">${T('Không đọc được tệp. Cần có ít nhất cột ngày và số tiền.')}</div>`;$('#impgo').disabled=true;return}
+      const keyOf=x=>x.date+'|'+x.amt+'|'+x.type+'|'+norm(x.note||'');const have=new Set((S.isSample?[]:S.tx).map(keyOf));
+      P.fresh=P.items.filter(x=>!have.has(keyOf(x)));P.dup=P.items.length-P.fresh.length;
+      const groups={};P.fresh.forEach(x=>{const k=x.type+'|'+x.catName;(groups[k]=groups[k]||{type:x.type,name:x.catName,n:0,color:x.color,src:x.src}).n++});
+      P.groups=Object.values(groups).sort((a,b)=>a.type.localeCompare(b.type)||b.n-a.n);map={};P.groups.forEach(g=>map[g.type+'|'+g.name]=matchCat(g.name,g.type));
+      const ds=P.items.map(x=>x.date).sort(),nex=P.fresh.filter(x=>x.type==='ex').length;
+      $('#impv').innerHTML=`<div class="ins" style="display:block"><b>${esc(P.fmt)}</b> · ${T('Tìm thấy {0} giao dịch ({1} chi, {2} thu), từ {3} đến {4}.',P.items.length,nex,P.fresh.length-nex,dmLabel(parseYMD(ds[0]))+'/'+ds[0].slice(0,4),dmLabel(parseYMD(ds.at(-1)))+'/'+ds.at(-1).slice(0,4))}
+        ${P.dup?'<br>'+T('{0} giao dịch đã có sẵn sẽ được bỏ qua.',P.dup):''}${S.isSample?'<br>'+T('Dữ liệu mẫu sẽ được xóa trước khi nhập.'):''}</div>
+        ${P.groups.length?`<div class="label" style="margin:14px 0 6px">${T('Ghép danh mục')}</div>`:''}
+        ${P.groups.map((g,i)=>`<div class="setrow" style="gap:8px"><span class="mid"><b>${esc(g.name||T('Khác'))}</b><small>${T(g.type==='in'?'Thu nhập':'Chi tiêu')} · ${T('{0} giao dịch',g.n)}</small></span>
+          <select data-gi="${i}" style="width:48%;flex:none;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--bg)">${S.cats.filter(c=>c.type===g.type).map(c=>`<option value="${c.id}" ${map[g.type+'|'+g.name]===c.id?'selected':''}>${c.icon} ${esc(T(c.name))}</option>`).join('')}${g.name?`<option value="new" ${map[g.type+'|'+g.name]==='new'?'selected':''}>${T('+ Tạo mới “{0}”',esc(g.name))}</option>`:''}</select></div>`).join('')}`;
+      document.querySelectorAll('[data-gi]').forEach(sel=>sel.onchange=()=>{const g=P.groups[+sel.dataset.gi];map[g.type+'|'+g.name]=sel.value});
+      const go=$('#impgo');go.disabled=!P.fresh.length;go.textContent=T('Nhập {0} giao dịch',P.fresh.length)};r.readAsText(f)};
+    $('#impgo').onclick=()=>{if(!P||!P.fresh.length)return;
+      if(S.isSample){const keep={theme:S.theme,accent:S.accent,birthYear:S.birthYear};S=fresh(false);Object.assign(S,keep)}
+      const made={};let ci=0;
+      P.groups.forEach(g=>{const k=g.type+'|'+g.name;if(map[k]!=='new')return;
+        const ex=S.cats.find(c=>c.type===g.type&&norm(c.name)===norm(g.name));if(ex){made[k]=ex.id;return}
+        const e=(EMO.find(([re])=>re.test(g.name))||[0,g.type==='in'?'💰':'🧾'])[1];
+        const c={id:uid(),name:g.name,icon:(g.src&&g.src.icon)||e,color:(g.src&&g.src.color)||(g.color&&/^#[0-9a-f]{6}$/i.test(g.color)?g.color:COLORS[ci++%COLORS.length]),type:g.type,budget:0,kw:[]};
+        if(g.type==='ex')c.essential=g.src&&g.src.essential!==undefined?g.src.essential:ESS_RE.test(g.name);S.cats.push(c);made[k]=c.id});
+      P.fresh.forEach(x=>{const k=x.type+'|'+x.catName;const t={id:uid(),date:x.date,cat:made[k]||map[k],amt:x.amt,note:x.note||'',type:x.type};if(x.need!==undefined)t.need=x.need;S.tx.push(t)});
+      save();close();toast(T('Đã nhập {0} giao dịch',P.fresh.length));
+      const last=P.fresh.map(x=>x.date).sort().at(-1);cur=parseYMD(last.slice(0,7)+'-01');tab='home';render()};
+  });
+}
 
 // ---------- Cloud sync (Firebase) ----------
 const CFG_KEY='sochitieu.fb';
@@ -683,6 +774,7 @@ document.addEventListener('click',e=>{
   if(a==='wipe')confirmSheet(T('Xóa toàn bộ giao dịch, danh mục và cài đặt?'),T('Xóa hết'),()=>{S=fresh(false);save();applyTheme()});
   if(a==='backup')copyText(JSON.stringify(S),T('Đã sao chép bản sao lưu. Hãy dán vào Ghi chú hoặc email cho chính bạn.'));
   if(a==='restore')restoreSheet();
+  if(a==='import')importSheet();
   if(a==='csv'){const k=repMode==='year'?String(cur.getFullYear()):monthKey(cur);
     const rows=[['Ngày','Loại','Danh mục','Bắt buộc','Ghi chú','Số tiền'].map(x=>T(x))].concat(S.tx.filter(t=>t.date.startsWith(k)).sort((x,y)=>x.date.localeCompare(y.date)).map(t=>[t.date,T(t.type==='in'?'Thu':'Chi'),T(cat(t.cat).name),t.type==='ex'?T(isNeed(t)?'Bắt buộc':'Tùy chọn'):'',T(t.note),t.type==='in'?t.amt:-t.amt]));
     copyText(rows.map(r=>r.join('\t')).join('\n'),T('Đã sao chép. Dán thẳng vào Excel hoặc Google Sheets.'))}
